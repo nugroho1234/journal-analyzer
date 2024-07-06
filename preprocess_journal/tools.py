@@ -13,11 +13,16 @@ def count_tokens(text, model="gpt-4o"):
     return len(tokens)
 
 
-def generate_random_string(length=16):
+def generate_random_string(first_three_chars:str, 
+                           length:int=16):
+    if len(first_three_chars) != 3:
+        raise ValueError("The input must be exactly 3 characters long.")
+    
     characters = string.ascii_letters + string.digits
-    random_string = ''.join(random.choice(characters) for _ in range(length))
-    return random_string
+    remaining_length = length - 3
+    random_string = ''.join(random.choice(characters) for _ in range(remaining_length))
+    return first_three_chars + random_string
 
 if __name__ == '__main__':
 
-    print(generate_random_string())
+    print(generate_random_string('CON'))

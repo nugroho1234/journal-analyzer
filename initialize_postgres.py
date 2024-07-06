@@ -1,77 +1,92 @@
-import psycopg2
-import os
+from preprocess_journal.preprocess_database.table_creation_func import (
+    check_and_create_table,
+    create_index,
+    delete_table,
+    print_table_names
+)
+
 from dotenv import load_dotenv
+import os
 
+# confidential info
+load_dotenv()
+dbname = os.getenv('POSTGRES_DBNAME')
+user = os.getenv('POSTGRES_USER')
+password = os.getenv('POSTGRES_PASSWORD')
+host = 'localhost'
 
-def print_table_names(dbname:str,
-                      user:str,
-                      password:str,
-                      host:str):
-    try:
-        # Connect to your postgres DB
-        conn = psycopg2.connect(
-            dbname=dbname,
-            user=user,
-            password=password,
-            host=host
-        )
+# queries
+# master_table query
+master_article_query = '''
+CREATE TABLE master_article (
+    article_id CHAR(16) PRIMARY KEY,
+    title TEXT,
+    journal_name TEXT,
+    year_of_publication INT CHECK (year_of_publication >= 1000 AND year_of_publication <= 9999),
+    author TEXT,
+    citation TEXT,
+    research_type TEXT,
+    summary TEXT
+);
+'''
 
-        # Open a cursor to perform database operations
-        cur = conn.cursor()
+master_concept_query = '''
+CREATE TABLE master_concept (
+    concept_id CHAR(16) PRIMARY KEY,
+    name TEXT,
+    type TEXT
+);
+'''
 
-        # Execute a query
-        # Execute a query to get the table names
-        cur.execute("""
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public';
-        """)
+quantitative_articles_query = """
+CREATE TABLE quantitative_articles (
+    quant_id CHAR(16) PRIMARY KEY REFERENCES master_article(article_id),
+    research_background TEXT,
+    novelty TEXT,
+    research_gap TEXT,
+    independent_var TEXT,
+    dependent_var TEXT,
+    mediating_var TEXT,
+    moderating_var TEXT,
+    hypothesis TEXT,
+    sample TEXT,
+    research_method TEXT,
+    results TEXT,
+    limitations TEXT,
+    future_research TEXT
+);
+"""
 
-        # Retrieve query results
-        tables = cur.fetchall()
+qualitative_articles_query = """
+CREATE TABLE qualitative_articles (
+    qual_id CHAR(16) PRIMARY KEY REFERENCES master_article(article_id),
+    research_background TEXT,
+    novelty TEXT,
+    research_gap TEXT,
+    concepts TEXT,
+    hypothesis TEXT,
+    sample TEXT,
+    research_method TEXT,
+    results TEXT,
+    limitations TEXT,
+    future_research TEXT
+);
+"""
 
-        # Print the table names
-        print("Tables in the database:")
-        for table in tables:
-            print(table[0])
+definitions_query = """
+CREATE TABLE definitions (
+    def_id CHAR(16) PRIMARY KEY,
+    name TEXT,
+    concept_id CHAR(16) REFERENCES master_concept (concept_id), 
+    article_id CHAR(16) REFERENCES master_article (article_id), 
+    definition TEXT
+);
+"""
 
-        # Close the cursor and connection
-        cur.close()
-        conn.close()
-
-
-    except Exception as error:
-        print("Error while connecting to PostgreSQL", error)
-
-
-def delete_table(dbname:str,
-                user:str,
-                password:str,
-                host:str,
-                table:str):
-    try:
-        # Connect to your postgres DB
-        conn = psycopg2.connect(
-            dbname="journal_analyzer_database",
-            user="agusnug",
-            password="danifiltH7!1985",
-            host="localhost"
-            )
-        cur = conn.cursor()
-        cur.execute(f'DROP TABLE IF EXISTS {table} CASCADE;')
-
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as error:
-        print(error)
-
-if __name__ == '__main__':
-    load_dotenv()
-    dbname = os.getenv('POSTGRES_DBNAME')
-    user = os.getenv('POSTGRES_USER')
-    password = os.getenv('POSTGRES_PASSWORD')
-    host = 'localhost'
-    print_table_names(dbname, user, password, host)
-    delete_table(dbname, user, password, host, 'langchain_pg_embedding')
-    print_table_names(dbname, user, password, host)
+check_and_create_table(dbname, user, password, host, 'master_article', master_article_query)
+check_and_create_table(dbname, user, password, host, 'master_concept', master_concept_query)
+check_and_create_table(dbname, user, password, host, 'quantitative_articles', quantitative_articles_query)
+check_and_create_table(dbname, user, password, host, 'qualitative_articles', qualitative_articles_query)
+check_and_create_table(dbname, user, password, host, 'definitions', definitions_query)
+create_index(dbname, user, password, host)
+print_table_names(dbname, user, password, host)
