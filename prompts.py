@@ -4,3 +4,8 @@ You will be given a table from a journal article, and you will need to summarize
 Create multiple paragraphs only if neccessary so that the summary is easier to read. \
 
 Table: {element} """
+
+# Prompt for master article
+master_article_prompt = """
+    \n\nAnswer the user query using the article above. \n{format_instructions}\n{query}\n\n 
+"""

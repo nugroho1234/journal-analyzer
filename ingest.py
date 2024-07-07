@@ -1,12 +1,17 @@
 import config
-from preprocess_journal.article_tools.preprocess_article import (
-    create_pdf_elements,
-    separate_table_and_text,
-    recombine_elements,
-    create_docx
+from preprocess_journal.article_tools.preprocess_article import process_article
+from preprocess_journal.preprocess_database.data_extraction import (
+    extract_master_article_details
+)
+from preprocess_journal.preprocess_database.database_vars import (
+    MasterArticle,
+    master_article_query
 )
 from preprocess_journal.tools import generate_random_string
-from prompts import prompt_table
+from prompts import (
+    prompt_table,
+    master_article_prompt
+)
 
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
@@ -16,6 +21,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 
 from dotenv import load_dotenv
 import os
@@ -25,7 +31,9 @@ load_dotenv()
 
 # environment variables
 openai_api_key = os.getenv('OPENAI_API_KEY')
+anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
 os.environ["OPENAI_API_KEY"] = openai_api_key
+os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
 
 # vectorstores directories
 MASTER_ARTICLE_PATH = config.MASTER_ARTICLE_CHROMA_PATH
@@ -35,53 +43,29 @@ ARTICLE_SUMMARY_PATH = config.ARTICLE_SUMMARY_CHROMA_PATH
 model = ChatOpenAI(temperature=0,model="gpt-4o")
 embeddings = HuggingFaceEmbeddings(model_name='intfloat/multilingual-e5-base',
                                     model_kwargs={'device': 'cpu'})
-
+llm = ChatAnthropic(temperature=0,model="claude-3-haiku-20240307")
 # prompts
 prompt_table_template = PromptTemplate(input_variables=["element"], template=prompt_table)
 
 # file
-file_1 = "notebook/2-layout.pdf"
+file_1 = "notebook/1-layout.pdf"
 
 
 # preprocessing PDFs
-raw_pdf_elements = create_pdf_elements(file_1)
-categorized_elements, table_elements, text_elements, table_indices, text_indices = separate_table_and_text(raw_pdf_elements)
+combined_elements, big_context = process_article(file_1, prompt_table_template, model)
 
-combined_elements = []
-table_summaries = []
-text_summaries = []
+# get article details
+master_article_parser = JsonOutputParser(pydantic_object=MasterArticle)
 
-if len(table_elements) == 0:
-    for text in text_elements:
-        combined_elements.append(text.text)
-else:
-    tables = [i.text for i in table_elements]
-    chain_table = prompt_table_template | model
-    for table in tables:
-        response = chain_table.invoke({
-            "element": table
-        })
-        table_summaries.append(response.content)
-    texts = [i.text for i in text_elements]
-    for text in texts:
-        text_summaries.append(text)
-    combined_elements = recombine_elements(categorized_elements, table_summaries, text_summaries, table_indices, text_indices)
+master_article_details = extract_master_article_details(big_context,
+                                                 master_article_prompt,
+                                                 master_article_parser,
+                                                 llm,
+                                                 master_article_query
+                                                 )
+print(master_article_details)
 
-big_context = '\n'.join(combined_elements)
-
-class MasterArticle(BaseModel):
-    title:str = Field(description="The title of this article. Typically found at the beginning of the article,")
-    journal_name:str = Field(description="The name of the journal in which this article is published")
-    year_of_publication:str = Field(description="The year of publication of this article")
-    author:str = Field(description="The author(s) of this article")
-    citation:str = Field(description="How to cite this journal in APA style. Place <i></i> tag where the text should be italic")
-    research_type:str = Field(description="Whether this article uses quantitative, qualitative, or other research methods. Answer with 'quantitative', 'qualitative' or 'other'.")
-    summary:str = Field(description="The summary of this article. Include the research background, novelty, research gap, variables or concepts, research method, and results")
-
-master_article_query = "Get the details of this article."
-
-parser = JsonOutputParser(pydantic_object=MasterArticle)
-
+'''
 prompt_template_ending = """
     \n\nAnswer the user query using the article above. \n{format_instructions}\n{query}\n\n 
 """
@@ -92,11 +76,13 @@ prompt = PromptTemplate(
     partial_variables={"format_instructions": parser.get_format_instructions()}
 )
 
-chain = prompt | model | parser
+llm = ChatAnthropic(temperature=0,model="claude-3-haiku-20240307")
+
+chain = prompt | llm | parser
 
 results = chain.invoke({"query": master_article_query})
-print(results)
-
+print(dict(results))
+'''
 '''
 # master article embeddings 
 collection_name = 'master_article_embeddings'

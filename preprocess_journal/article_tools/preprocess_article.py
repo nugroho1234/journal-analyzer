@@ -1,5 +1,7 @@
 # For partitioning pdf
 from docx import Document as Doc
+from langchain.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
 from lxml import html
 from pydantic import BaseModel
 from typing import Any, Optional
@@ -102,6 +104,35 @@ def recombine_elements(categorized_elements, table_summaries, text_summaries, ta
         elif i in text_indices:
             combined_elements.append(text_summaries[text_indices.index(i)])
     return combined_elements
+
+def process_article(file_name:str,
+                    prompt_table_template:PromptTemplate,
+                    llm:ChatOpenAI):
+    raw_pdf_elements = create_pdf_elements(file_name)
+    categorized_elements, table_elements, text_elements, table_indices, text_indices = separate_table_and_text(raw_pdf_elements)
+
+    combined_elements = []
+    table_summaries = []
+    text_summaries = []
+
+    if len(table_elements) == 0:
+        for text in text_elements:
+            combined_elements.append(text.text)
+    else:
+        tables = [i.text for i in table_elements]
+        chain_table = prompt_table_template | llm
+        for table in tables:
+            response = chain_table.invoke({
+                "element": table
+            })
+            table_summaries.append(response.content)
+        texts = [i.text for i in text_elements]
+        for text in texts:
+            text_summaries.append(text)
+        combined_elements = recombine_elements(categorized_elements, table_summaries, text_summaries, table_indices, text_indices)
+
+    big_context = '\n'.join(combined_elements)
+    return combined_elements, big_context
 
 def create_docx(docx_dir, combined_elements, pdf_filename):
     """
