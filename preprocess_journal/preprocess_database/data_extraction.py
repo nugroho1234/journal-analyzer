@@ -16,3 +16,31 @@ def extract_master_article_details(big_context:str,
     chain = prompt | llm | parser
     results = chain.invoke({"query": master_article_query})        
     return dict(results)
+
+def extract_variables(big_context:str,
+                      prompt_template_ending:str,
+                      parser:JsonOutputParser,
+                      llm:ChatAnthropic,
+                      quantitative_article_query:str):
+    prompt = PromptTemplate(
+        template = big_context + prompt_template_ending,
+        input_variables=["query"],
+        partial_variables={"format_instructions": parser.get_format_instructions()}
+    )
+    chain = prompt | llm | parser
+    results = chain.invoke({"query": quantitative_article_query})        
+    return dict(results)
+
+def extract_concepts(big_context:str,
+                     prompt_template_ending:str,
+                     parser:JsonOutputParser,
+                     llm:ChatAnthropic,
+                     qualitative_article_query:str):
+    prompt = PromptTemplate(
+        template = big_context + prompt_template_ending,
+        input_variables=["query"],
+        partial_variables={"format_instructions": parser.get_format_instructions()}
+    )
+    chain = prompt | llm | parser
+    results = chain.invoke({"query": qualitative_article_query})        
+    return dict(results)

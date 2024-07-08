@@ -40,7 +40,7 @@ CREATE TABLE master_concept (
 
 quantitative_articles_query = """
 CREATE TABLE quantitative_articles (
-    quant_id CHAR(16) PRIMARY KEY REFERENCES master_article(article_id),
+    article_id CHAR(16) PRIMARY KEY REFERENCES master_article(article_id),
     research_background TEXT,
     novelty TEXT,
     research_gap TEXT,
@@ -59,7 +59,7 @@ CREATE TABLE quantitative_articles (
 
 qualitative_articles_query = """
 CREATE TABLE qualitative_articles (
-    qual_id CHAR(16) PRIMARY KEY REFERENCES master_article(article_id),
+    article_id CHAR(16) PRIMARY KEY REFERENCES master_article(article_id),
     research_background TEXT,
     novelty TEXT,
     research_gap TEXT,
@@ -82,11 +82,21 @@ CREATE TABLE definitions (
     definition TEXT
 );
 """
+'''
+# DELETING TABLES
+delete_table(dbname, user, password, host, 'master_article')
+delete_table(dbname, user, password, host, 'master_concept')
+delete_table(dbname, user, password, host, 'quantitative_articles')
+delete_table(dbname, user, password, host, 'definitions')
 
+'''
+
+# CREATING TABLES
 check_and_create_table(dbname, user, password, host, 'master_article', master_article_query)
 check_and_create_table(dbname, user, password, host, 'master_concept', master_concept_query)
 check_and_create_table(dbname, user, password, host, 'quantitative_articles', quantitative_articles_query)
 check_and_create_table(dbname, user, password, host, 'qualitative_articles', qualitative_articles_query)
 check_and_create_table(dbname, user, password, host, 'definitions', definitions_query)
 create_index(dbname, user, password, host)
+
 print_table_names(dbname, user, password, host)

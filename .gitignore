@@ -3,3 +3,5 @@ notebook
 mock_data
 postgres_test.py
 __pycache__
+vectorstores
+articles
