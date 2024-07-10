@@ -7,7 +7,7 @@ from ingestion_queries import (
     insert_query_quantitative_articles
 )
 from preprocess_journal.preprocess_database.data_ingestion_func import (
-    concept_name_exists,
+    checker_name_exists,
     get_concept_id
 )
 from preprocess_journal.article_tools.preprocess_article import process_article
@@ -61,8 +61,10 @@ cur = conn.cursor()
 # environment variables
 openai_api_key = os.getenv('OPENAI_API_KEY')
 anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
+gcs_credentials = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 os.environ["OPENAI_API_KEY"] = openai_api_key
 os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = gcs_credentials
 
 # vectorstores directories
 MASTER_ARTICLE_PATH = config.MASTER_ARTICLE_CHROMA_PATH
@@ -125,8 +127,6 @@ sample = master_article_details['sample']
 results = master_article_details['results']
 limitations = master_article_details['limitations']
 future_research = master_article_details['future_research']
-
-
 
 #create big summary
 background_summary = f'Research background: \n{research_background}\n\n'
@@ -253,7 +253,7 @@ summary_db.persist()
 if (research_type == 'qualitative') or (research_type == 'quantitative'):
     if len(all_concepts) > 0:
         for concept_name in all_concepts:
-            concept_exists = concept_name_exists(conn, 'master_concept', 'name', concept_name)
+            concept_exists = checker_name_exists(conn, 'master_concept', 'name', concept_name)
             if concept_exists:
                 concept_id = get_concept_id(conn, 'master_concept', 'name', concept_name)
             else:

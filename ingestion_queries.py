@@ -2,7 +2,7 @@
 insert_query_master_article = """
 INSERT INTO master_article (
     article_id, title, journal_name, year_of_publication, author, citation, research_type,
-    summary
+    summary, file_name
 ) VALUES %s
 """
 

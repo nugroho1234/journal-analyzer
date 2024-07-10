@@ -5,3 +5,6 @@ postgres_test.py
 __pycache__
 vectorstores
 articles
+keys
+gcs_test.py
+tmp

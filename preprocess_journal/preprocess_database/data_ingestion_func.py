@@ -1,6 +1,6 @@
 import psycopg2
 
-def concept_name_exists(conn, table_name: str, column_name: str, concept_name: str) -> bool:
+def checker_name_exists(conn, table_name: str, column_name: str, concept_name: str) -> bool:
     with conn.cursor() as cur:
         cur.execute(f"SELECT 1 FROM {table_name} WHERE {column_name} = %s LIMIT 1;", (concept_name,))
         return cur.fetchone() is not None

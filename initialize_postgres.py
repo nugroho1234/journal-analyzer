@@ -26,7 +26,8 @@ CREATE TABLE master_article (
     author TEXT,
     citation TEXT,
     research_type TEXT,
-    summary TEXT
+    summary TEXT,
+    file_name TEXT
 );
 '''
 

@@ -13,3 +13,6 @@ SUMMARY_DB = 'article-summary'
 VECTORSTORES = os.path.join(CURRENT_DIR, VECTOR_DIR)
 MASTER_ARTICLE_CHROMA_PATH = os.path.join(VECTORSTORES, MASTER_ARTICLE_DB)
 ARTICLE_SUMMARY_CHROMA_PATH = os.path.join(VECTORSTORES, SUMMARY_DB)
+
+# gcs config
+BUCKET_NAME = 'journal_analyzer_bucket'

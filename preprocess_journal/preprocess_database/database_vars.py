@@ -13,7 +13,7 @@ class MasterArticle(BaseModel):
     citation:str = Field(description="How to cite this journal in APA style. Place <i></i> tag where the text should be italic")
     research_type:str = Field(description="Whether this article uses quantitative, qualitative, or other research methods. Answer with 'quantitative', 'qualitative' or 'other'.")
     summary:str = Field(description="The summary of this article. Include the research background, novelty, research gap, variables or concepts, research method, and results.")
-    research_background:str = Field(description="The summary of research background in the article. It should be less than 1500 words.")
+    research_background:str = Field(description="The summary of research background in the article. It should be less than 500 words.")
     novelty:str = Field(description="The novelty of this research. If it's not mentioned, just answer with '-'.")
     research_gap:str = Field(description="The research gap of this research. If it's not mentiond, just answer with '-'.")
     sample:str = Field(description="The sample or informants used in this research. Please give the number of sample used and who they are. Example: 200 university students.")
