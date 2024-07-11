@@ -89,6 +89,7 @@ delete_table(dbname, user, password, host, 'master_article')
 delete_table(dbname, user, password, host, 'master_concept')
 delete_table(dbname, user, password, host, 'quantitative_articles')
 delete_table(dbname, user, password, host, 'definitions')
+delete_table(dbname, user, password, host, 'qualitative_articles')
 
 '''
 

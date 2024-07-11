@@ -17,7 +17,7 @@ class MasterArticle(BaseModel):
     novelty:str = Field(description="The novelty of this research. If it's not mentioned, just answer with '-'.")
     research_gap:str = Field(description="The research gap of this research. If it's not mentiond, just answer with '-'.")
     sample:str = Field(description="The sample or informants used in this research. Please give the number of sample used and who they are. Example: 200 university students.")
-    research_method:str = Field(description="The method used in this research.")
+    research_method:str = Field(description="The method used in this research. It should be concise. Example: observation and interviews. Example 2: Regression using SPSS.")
     results:str = Field(description="The summary of the results of this research.")
     limitations:str = Field(description="The limitations of this research. Answer with '-' if not mentioned.")
     future_research:str = Field(description="The future research directions proposed by the researcher(s). Answer with '-' if not mentioned.")

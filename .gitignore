@@ -8,3 +8,4 @@ articles
 keys
 gcs_test.py
 tmp
+vectorstores_test.py

@@ -1,6 +1,8 @@
 import random
 import string
 import tiktoken
+import os
+import shutil
 
 def count_tokens(text, model="gpt-4o"):
     # Load the tokenizer
@@ -35,6 +37,47 @@ def generate_unique_id(conn, table_name: str, id_column: str, first_three_chars:
         new_id = generate_random_string(first_three_chars, length)
         if not id_exists_in_db(conn, table_name, id_column, new_id):
             return new_id
+
+
+def move_files_to_tmp(source_folder:str = "unfinished/Articles",
+                      destination_folder:str = "tmp/Articles"):
+    # Create the destination folder if it does not exist
+    os.makedirs(destination_folder, exist_ok=True)
+
+    # Copy all files from the source to the destination folder
+    for filename in os.listdir(source_folder):
+        source_file = os.path.join(source_folder, filename)
+        destination_file = os.path.join(destination_folder, filename)
+        
+        # Check if it is a file (not a directory)
+        if os.path.isfile(source_file):
+            shutil.copy2(source_file, destination_file)
+
+    # Delete all files in the source folder
+    for filename in os.listdir(source_folder):
+        source_file = os.path.join(source_folder, filename)
+        
+        # Check if it is a file (not a directory) and delete it
+        if os.path.isfile(source_file):
+            os.remove(source_file)
+
+    print("Files copied and original files deleted.")
+
+def move_one_file(source_folder, destination_folder, filename):
+    # Ensure the source file exists
+    source_file = os.path.join(source_folder, filename)
+    if not os.path.isfile(source_file):
+        raise FileNotFoundError(f"The file {filename} does not exist in the source folder.")
+    
+    # Create the destination folder if it does not exist
+    os.makedirs(destination_folder, exist_ok=True)
+
+    # Define the destination file path
+    destination_file = os.path.join(destination_folder, filename)
+
+    # Move the file
+    shutil.move(source_file, destination_file)
+    print(f"Moved {filename} to {destination_folder}")
 
 if __name__ == '__main__':
 

@@ -8,11 +8,17 @@ from ingestion_queries import (
 )
 from preprocess_journal.preprocess_database.data_ingestion_func import (
     checker_name_exists,
-    get_concept_id
+    get_concept_id,
+    ingest_to_master_article,
+    ingest_quantitative,
+    ingest_qualitative,
+    ingest_master_concept,
+    ingest_definitions
 )
 from preprocess_journal.article_tools.preprocess_article import process_article
 from preprocess_journal.article_tools.article_loader import (
-    get_article_files
+    get_article_files,
+    download_article_from_gcs
 )
 from preprocess_journal.preprocess_database.data_extraction import (
     extract_master_article_details,
@@ -35,7 +41,11 @@ from preprocess_journal.preprocess_vectorstores.summary_builder import (
     create_qualitative_summary
 )
 
-from preprocess_journal.tools import generate_unique_id
+from preprocess_journal.tools import (
+    generate_unique_id,
+    move_files_to_tmp,
+    move_one_file
+)
 from prompts import (
     prompt_table,
     master_article_prompt,
@@ -53,10 +63,12 @@ from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from psycopg2.extras import execute_values
 import psycopg2
 
 from dotenv import load_dotenv
+import argparse
 import os
 from typing import List, Tuple
 
@@ -67,9 +79,6 @@ user = os.getenv('POSTGRES_USER')
 password = os.getenv('POSTGRES_PASSWORD')
 host = 'localhost'
 
-conn = psycopg2.connect(dbname=dbname, user=user, password=password, host=host)
-cur = conn.cursor()
-
 # environment variables
 openai_api_key = os.getenv('OPENAI_API_KEY')
 anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
@@ -77,6 +86,15 @@ gcs_credentials = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 os.environ["OPENAI_API_KEY"] = openai_api_key
 os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = gcs_credentials
+
+# argument parser
+parser = argparse.ArgumentParser(description="Data ingestion source selector")
+parser.add_argument('--sourceType',
+                    choices=['google_storage', 'unfinished'],
+                    help="Which source to be ingested")
+
+args = parser.parse_args()
+folder_path = 'tmp/Articles'
 
 # vectorstores directories
 MASTER_ARTICLE_PATH = config.MASTER_ARTICLE_CHROMA_PATH
@@ -96,16 +114,22 @@ llm = ChatAnthropic(temperature=0,model="claude-3-haiku-20240307")
 # prompts
 prompt_table_template = PromptTemplate(input_variables=["element"], template=prompt_table)
 
+if args.sourceType == 'google_storage':
+    article_files = get_article_files(GCS_BUCKET, storage_client)
+    #article_files = article_files[:20]
+elif args.sourceType == 'unfinished':
+    move_files_to_tmp()
+    article_files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
 
 
-article_files = get_article_files(GCS_BUCKET, storage_client)
-article_files = article_files[:5]
 for file_name in article_files:
     try:
-        bucket = storage_client.get_bucket(GCS_BUCKET)
-        blob = bucket.blob(file_name)
-        path_to_tmp_file = 'tmp/' + file_name
-        blob.download_to_filename(path_to_tmp_file)
+        conn = psycopg2.connect(dbname=dbname, user=user, password=password, host=host)
+        cur = conn.cursor()
+        if args.sourceType == 'google_storage':
+            path_to_tmp_file = download_article_from_gcs(GCS_BUCKET, storage_client, file_name, 'tmp')
+        elif args.sourceType == 'unfinished':
+            path_to_tmp_file = os.path.join('tmp/Articles', file_name)
         
         # preprocessing PDFs
         print('Turning PDF into TEXT...')
@@ -146,7 +170,7 @@ for file_name in article_files:
 
         title_exists = checker_name_exists(conn, 'master_article', 'title', title)
         if title_exists:
-            pass
+            continue
         else:
             #create big summary
             big_summary = create_big_summary_opening(title, 
@@ -212,7 +236,6 @@ for file_name in article_files:
             )
 
             execute_values(cur, insert_query_master_article, [values])
-
             # INGEST INTO QUANTITATIVE OR QUALITATIVE ARTICLE DATABASE
             if research_type == 'quantitative':
                 values = (
@@ -245,22 +268,22 @@ for file_name in article_files:
                     results,
                     limitations,
                     future_research
-                )
+                    )
                 execute_values(cur, insert_query_qualitative_articles, [values])
-            
             # article embeddings 
             print('Getting embeddings and saving it to vectorstores...')
             # master article
             master_db_metadata = {}
             master_db_metadata['article_id'] = article_id
-            combined_docs = [Document(page_content=i, metadata = master_db_metadata) for i in combined_elements]
-
+            combined_elements_str = '\n'.join(combined_elements)
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+            splits = text_splitter.split_text(combined_elements_str) 
+            combined_docs = [Document(page_content=i, metadata = master_db_metadata) for i in splits]
             master_db = Chroma.from_documents(combined_docs, embeddings, persist_directory=MASTER_ARTICLE_PATH)
             master_db.persist()
 
             # summary article
             summary_docs = [Document(page_content=big_summary, metadata = master_db_metadata)]
-
             summary_db = Chroma.from_documents(summary_docs, embeddings, persist_directory=ARTICLE_SUMMARY_PATH)
             summary_db.persist()
 
@@ -287,7 +310,7 @@ for file_name in article_files:
                             )
                             
                             execute_values(cur, insert_query_master_concept, [values])
-
+                            
                         # PROCESSING DEFINITIONS
                         if research_type == 'quantitative':
                             concept_prompt = beginning_definition_prompt + f'Variable: {concept_name}\n\n' + ending_definition_prompt
@@ -320,15 +343,22 @@ for file_name in article_files:
                         )
 
                         execute_values(cur, insert_query_definitions, [values])
-            #delete temp file
+        #delete temp file
         os.remove(path_to_tmp_file)
+        conn.commit()
+        cur.close()
+        conn.close()
     except Exception as e:
-        bucket = storage_client.get_bucket(GCS_BUCKET)
-        blob = bucket.blob(file_name)
-        path_to_tmp_file = 'unfinished/' + file_name
-        blob.download_to_filename(path_to_tmp_file)
+        print(e)
+        if args.sourceType == 'google_storage':
+            bucket = storage_client.get_bucket(GCS_BUCKET)
+            blob = bucket.blob(file_name)
+            path_to_tmp_file = 'tmp/' + file_name
+            os.remove(path_to_tmp_file)
+            path_to_tmp_file = 'unfinished/' + file_name
+            blob.download_to_filename(path_to_tmp_file)
+        elif args.sourceType == 'unfinished':
+            move_one_file('tmp/Articles', 'unfinished/Articles', file_name)
 
-conn.commit()
-cur.close()
-conn.close()
+
 
